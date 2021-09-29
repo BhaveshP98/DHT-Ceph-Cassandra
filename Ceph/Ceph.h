@@ -39,6 +39,11 @@ class Node{
 		{
 			this->data[hashValue]=replicaNo;
 		}
+
+		void SetData(unordered_map<int, int> data)
+		{
+			this->data = data;
+		}
 		
 		int getWeight()
 		{
