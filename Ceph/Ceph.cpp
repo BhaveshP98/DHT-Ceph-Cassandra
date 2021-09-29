@@ -1,5 +1,31 @@
 #include "Ceph.h"
 
+#define crush_hash_seed 1315423911
+
+#define crush_hashmix(a, b, c) do {     \
+    a = a-b;  a = a-c;  a = a^(c>>13);  \
+    b = b-c;  b = b-a;  b = b^(a<<8); \
+    c = c-a;  c = c-b;  c = c^(b>>13);  \
+    a = a-b;  a = a-c;  a = a^(c>>12);  \
+    b = b-c;  b = b-a;  b = b^(a<<16);  \
+    c = c-a;  c = c-b;  c = c^(b>>5); \
+    a = a-b;  a = a-c;  a = a^(c>>3); \
+    b = b-c;  b = b-a;  b = b^(a<<10);  \
+    c = c-a;  c = c-b;  c = c^(b>>15);  \
+  } while (0);
+
+static int crush_hash32_rjenkins1_3(int a, int b, int c) {
+  int hash = crush_hash_seed ^ a ^ b ^ c;
+  int x = 231232;
+  int y = 1232;
+  crush_hashmix(a, b, hash);
+  crush_hashmix(c, x, hash);
+  crush_hashmix(y, a, hash);
+  crush_hashmix(b, x, hash);
+  crush_hashmix(y, c, hash);
+  return hash;
+}
+
 int insert_data(Node** head, int hashValue, int replicaNo, int NodeCount)
 {
 	Node *cur_node = *head;
@@ -15,7 +41,7 @@ int insert_data(Node** head, int hashValue, int replicaNo, int NodeCount)
 
 		int cumulative_weight = cur_node->getCumulativeWeight();
 		unordered_map<int, int> cur_node_data = cur_node->getData();
-		float hash = float((hashValue+replicaNo)%cumulative_weight)/cumulative_weight;
+		float hash = float(crush_hash32_rjenkins1_3(hashValue, replicaNo, cumulative_weight))/cumulative_weight;
 
 		if(hash >= cur_node->getCumulativeWeightRatio())
 		{
@@ -25,8 +51,8 @@ int insert_data(Node** head, int hashValue, int replicaNo, int NodeCount)
 		{
 			if(cur_node_data.find(hashValue) == cur_node_data.end())
 			{
-				cout<<"Inside Insert"<<endl;
-				cout<<hash<<" "<<cur_node->getCumulativeWeightRatio()<<" "<<cur_node->getNodeID()<<endl;
+				//cout<<"Inside Insert"<<endl;
+				//cout<<hash<<" "<<cur_node->getCumulativeWeightRatio()<<" "<<cur_node->getNodeID()<<endl;
 				cur_node->insertData(hashValue, replicaNo);
 				return cur_node->getNodeID();
 			}
@@ -64,6 +90,7 @@ void balance_load(Node** head, int nodeID, int weight, int NodeCount)
 	cur = *head;
 	
 	vector<vector<int>> MovableData;
+	float prev_cumulative_weight_ratio = 0;
 	
 	while(cur!= NULL /* && cur->getNodeID() != nodeID*/)
 	{
@@ -78,8 +105,8 @@ void balance_load(Node** head, int nodeID, int weight, int NodeCount)
 				int hashValue = it->first;
 				int replicaNo = it->second;
 				
-				float hash = float((hashValue+replicaNo)%cumulative_weight)/cumulative_weight;
-				if(hash >= cur->getCumulativeWeightRatio())
+				float hash = float(crush_hash32_rjenkins1_3(hashValue, replicaNo, cumulative_weight))/cumulative_weight;
+				if(hash < prev_cumulative_weight_ratio || hash >= cur->getCumulativeWeightRatio())
 				{
 					MovableData.push_back({hashValue, replicaNo, cur->getNodeID()});
 					it = nodeData.erase(it);
@@ -90,6 +117,7 @@ void balance_load(Node** head, int nodeID, int weight, int NodeCount)
 				}
 			}
 			cur->SetData(nodeData);
+			prev_cumulative_weight_ratio = cur->getCumulativeWeightRatio();
 		}
 		cur = cur->getNext();
 	}
@@ -129,17 +157,17 @@ void AddNode(Node** head, int nodeID, int weight)
 				int hashValue = it->first;
 				int replicaNo = it->second;
 				
-				float hash = float((hashValue+replicaNo)%cumulative_weight)/cumulative_weight;
+				float hash = float(crush_hash32_rjenkins1_3(hashValue, replicaNo, cumulative_weight))/cumulative_weight;
 
 				if(hash < cumulative_weight_ratio)
 				{
 					newNode_data.push_back({hashValue, replicaNo, cur->getNodeID()});
 					it = cur_node_data.erase(it);
 				}
-				else{
+				else
+				{
 					it++;
 				}
-				
 			}
 			cur->SetData(cur_node_data);
 			cur = cur->getNext();
