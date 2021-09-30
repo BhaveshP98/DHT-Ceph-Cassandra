@@ -1,21 +1,12 @@
 #include "Cassandra.h"
 
-int insert_data(Node** head, int hashValue, int replicaNo, int NodeCount)
+/*int insert_data(Node** head,  int NodeCount)
 {
 	Node *cur_node = *head;
 	
-	while(cur_node != NULL)
+	while(NodeCount--)
 	{
-		int cumulative_weight = cur_node->getCumulativeWeight();
-		float hash = float((hashValue+replicaNo)%cumulative_weight)/cumulative_weight;
-		if(hash < cur_node->getCumulativeWeightRatio())
-		{
-			cout<<"Inside Insert"<<endl;
-			cout<<hash<<" "<<cur_node->getCumulativeWeightRatio()<<" "<<cur_node->getNodeID()<<endl;
-			cur_node->insertData(hashValue, replicaNo);
-			return cur_node->getNodeID();
-		}
-		cur_node = cur_node->getNext();
+		
 	}
 	
 	return -1;
@@ -46,7 +37,7 @@ void balance_load(Node** head, int nodeID, int weight, int NodeCount)
 	
 	unordered_map<int, vector<int>> MovableData;
 	
-	while(cur!= NULL /* && cur->getNodeID() != nodeID*/)
+	while(cur!= NULL /* && cur->getNodeID() != nodeID)
 	{
 		if(cur->getStatus() != false)
 		{
@@ -73,57 +64,39 @@ void balance_load(Node** head, int nodeID, int weight, int NodeCount)
 		int dest = insert_data(head, it->first, it->second[0], NodeCount);
 		it->second.push_back(dest);
 	}
-}
 
-void AddNode(Node** head, int nodeID, int weight)
+}*/
+
+void AddNode(Node** head, Node** tail, int nodeID, int hashValue)
 {
-	Node* newNode = new Node(nodeID, weight);
+	Node* newNode = new Node(nodeID, hashValue);
 	if(head == NULL)
+	{
 		*head = newNode;
+	}
 	else
 	{
+		Node* cur = *head;
+		Node* prev = *tail;
+		while(cur->getNext() != *head)
+		{
+			if(hashValue > cur->getHashValue())
+			{
+				prev = cur;
+				cur = cur->getNext();
+			}
+			else{
+				prev->setNext(&newNode);
+				newNode->setNext(&cur);
+				break;
+			}
+		}
 		newNode->setNext(head);
 		*head = newNode;
 	}
-	
-	Node* cur = *head;
-	unordered_map<int, int> newNode_data;
-	int cumulative_weight = cur->getCumulativeWeight();
-	float cumulative_weight_ratio = cur->getCumulativeWeightRatio();
-	while(cur->getNext() != NULL)
-	{
-		cur = cur->getNext();
-		if(cur->getStatus() != false)
-		{
-			unordered_map<int,int> cur_node_data;
-			cur_node_data = cur->getData();
-			unordered_map<int, int>::iterator it = cur_node_data.begin();
-			while(it != cur_node_data.end())
-			{
-				int hashValue = it->first;
-				int replicaNo = it->second;
-				
-				float hash = float((hashValue+replicaNo)%cumulative_weight)/cumulative_weight;
-
-				if(hash < cumulative_weight_ratio)
-				{
-					newNode_data[hashValue] = replicaNo;
-					it = cur_node_data.erase(it);
-				}
-				else{
-					it++;
-				}
-				
-			}
-			cur->SetData(cur_node_data);
-		}
-	}
-
-	(*head)->SetData(newNode_data);
-	
 }
 
-void RemoveNode(Node** head, int nodeID, int NodeCount, vector<int> replicaTable)
+/*void RemoveNode(Node** head, int nodeID, int NodeCount, vector<int> replicaTable)
 {
 	if(head == NULL)
 	{
@@ -171,13 +144,13 @@ void locate_data(Node** head, int data)
 		}
 		cur = cur->getNext();
 	}
-}
+}*/
 
-void print_data_all(Node** head)
+void print_data_all(Node** head, int NodeCount)
 {
 	Node* cur = *head;
-
-	while(cur!= NULL)
+	int i=0;
+	while(i<NodeCount)
 	{
 		unordered_map<int, int> NodeData;
 		cout<<"NodeID is "<<cur->getNodeID()<<endl;
@@ -188,6 +161,7 @@ void print_data_all(Node** head)
 		}
 		cout<<endl;
 		cur = cur->getNext();
+		i++;
 	}
 }
 
@@ -201,11 +175,9 @@ int main()
 	Node* tail = NULL;
 	int NodeCount = 0;
 	
-	vector<int> replicaTable(pow(2,m), r);
-	
 	for(int i=0;i<n;i++)
 	{
-		int hashValue = (i%n)*n;
+		int hashValue = i*(pow(2, m)/n);
 		Node* newNode = new Node(NodeCount, hashValue);
 		if(tail == NULL)
 		{
@@ -222,15 +194,16 @@ int main()
 	}
 	
 	Node* cur = head;
+	int i=0;
 
-	while(cur->getNext() != head)
+	while(i<NodeCount)
 	{
-		cur->insertData();
-		cur->insertReplicas(r);
+		cur->insertData(r, m);
 		cur = cur->getNext();
+		i++;
 	}
-
-	print_data_all(&head);
+	
+	print_data_all(&head, NodeCount);
 	
 	int choice;
 	
@@ -247,10 +220,10 @@ int main()
 		{
 			case 1:
 			{
-				cout<<"Enter weight of newly added node"<<endl;
-				int weight;
-				cin>>weight;
-				AddNode(&head, NodeCount, weight);
+				cout<<"Enter hash value of newly added node"<<endl;
+				int hashvalue;
+				cin>>hashvalue;
+				AddNode(&head, &tail, NodeCount, hashvalue);
 				NodeCount++;
 				break;
 			}
@@ -259,7 +232,7 @@ int main()
 				cout<<"Enter the ID of node to be removed"<<endl;
 				int nodeID;
 				cin>> nodeID;
-				RemoveNode(&head, nodeID, NodeCount, replicaTable);
+				//RemoveNode(&head, nodeID, NodeCount, replicaTable);
 				break;
 			}
 			case 3:
@@ -267,7 +240,7 @@ int main()
 				cout<<"Enter the hash value of data to be located"<<endl;
 				int data;
 				cin >> data;
-				locate_data(&head, data);
+				//locate_data(&head, data);
 				break;
 			}
 			case 4:
@@ -275,13 +248,13 @@ int main()
 				cout<<"Enter the nodeID and new weight"<<endl;
 				int nodeID, weight;
 				cin >> nodeID >> weight;
-				balance_load(&head, nodeID, weight, NodeCount);
+				//balance_load(&head, nodeID, weight, NodeCount);
 				break;
 			}
 			case 5:
 				break;
 			case 6:
-				print_data_all(&head);
+				print_data_all(&head, NodeCount);
 				break;
 			default:
 			{

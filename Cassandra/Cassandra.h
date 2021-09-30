@@ -1,17 +1,15 @@
 #include <iostream>
 #include <string>
 #include <cmath>
-#include<iostream>
-#include<math.h>
-#include<vector>
-#include<unordered_map>
+#include <iostream>
+#include <math.h>
+#include <vector>
+#include <unordered_map>
 
 using namespace std;
 
-
 /*
 	Node Class structure of each node in CEPH DHT.
-	
 */
 class Node{
     private:
@@ -22,38 +20,37 @@ class Node{
 		
     public:
 		/* Constructor for Node Class. */
-        Node(int NodeID, int weight)
+        Node(int NodeID, int hashValue)
 		{
 			this->NodeId = NodeID;
+			this->hashValue = hashValue;
 			this->next = NULL;
 		}
         ~Node();
 		
 		/* Function to insert the data(hash value and replica no in our case)*/
-        void insertData()
+        void insertData(int r, int m)
 		{
+			Node* cur = this;
 			int curHashValue = this->hashValue;
 			int nextHashValue = (this->next)->hashValue;
-			for(int i=curHashValue; i<nextHashValue; i++)
+			int i = 0;
+			int total = int(pow(2,m));
+			while(i<r)
 			{
-				this->data[hashValue] = 0;
+				while(curHashValue%total != nextHashValue)
+				{
+					cur->data[curHashValue] = i;
+					curHashValue++;
+				}
+				curHashValue = this->hashValue;
+				cur = cur->next;
+				i++;
 			}
 			return;
 		}
 
-		void insertReplicas(int r)
-		{
-			Node* cur = this->next;
-			unordered_map<int> tempData;
-			for(auto it = this->data.begin(); it != this->data.end(); it++)
-			{
-				if(it->second == 0)
-				{
-					tempData[it->first]=it->second+1;
-				}
-			}
-			
-		}
+		
 
 		void SetData(unordered_map<int, int> data)
 		{
@@ -78,6 +75,11 @@ class Node{
 		int getNodeID()
 		{
 			return this->NodeId;
+		}
+
+		int getHashValue()
+		{
+			return this->hashValue;
 		}
 		
 		unordered_map<int, int> getData()
