@@ -5,6 +5,7 @@
 #include <math.h>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace std;
 
@@ -15,18 +16,34 @@ class Node{
     private:
         int NodeId; // Unique identifier for the node.
 		int hashValue; // Weight assigned to each node.
-		unordered_map<int,int> data; // Data held by the node in the form of <HashValue, ReplicaNo>.
+		vector<unordered_set<int>> data; // Data held by the node in the form of <HashValue, ReplicaNo>.
 		Node* next; // Pointer pointing to the next node in the distributed system.
 		
     public:
 		/* Constructor for Node Class. */
-        Node(int NodeID, int hashValue)
+        Node(int NodeID, int hashValue, int r)
 		{
 			this->NodeId = NodeID;
 			this->hashValue = hashValue;
+			for(int i=0;i<r;i++)
+				data.push_back({});
+
 			this->next = NULL;
 		}
         ~Node();
+
+		void enterOriginalData(int total)
+		{
+			int curHashValue = this->hashValue;
+			int nextHashValue = (this->next)->hashValue;
+			unordered_set<int> nodeData;
+			while(curHashValue%total != nextHashValue)
+			{
+				nodeData.insert(curHashValue);
+				curHashValue++;
+			}
+			data[0] = nodeData;
+		}
 		
 		/* Function to insert the data(hash value and replica no in our case)*/
         void insertData(int r, int m)
@@ -34,27 +51,25 @@ class Node{
 			Node* cur = this;
 			int curHashValue = this->hashValue;
 			int nextHashValue = (this->next)->hashValue;
-			int i = 0;
-			int total = int(pow(2,m));
+			int total = pow(2, m);
+			if(data[0].size() == 0)
+			{
+				enterOriginalData(total);
+			}
+			int i=0;
 			while(i<r)
 			{
-				while(curHashValue%total != nextHashValue)
-				{
-					cur->data[curHashValue] = i;
-					curHashValue++;
-				}
-				curHashValue = this->hashValue;
+				cur->SetData(data[0], i);
 				cur = cur->next;
 				i++;
 			}
 			return;
 		}
-
 		
 
-		void SetData(unordered_map<int, int> data)
+		void SetData(unordered_set<int> data, int idx)
 		{
-			this->data = data;
+			this->data[idx] = data;
 		}
 		
 		/*Get the pointer to next Node*/
@@ -67,7 +82,10 @@ class Node{
 		void setNext(Node** node)
 		{
 			if(node == NULL)
+			{
+				this->next = NULL;
 				return;
+			}
 			this->next = *node;
 		}
 		
@@ -82,7 +100,7 @@ class Node{
 			return this->hashValue;
 		}
 		
-		unordered_map<int, int> getData()
+		vector<unordered_set<int>> getData()
 		{
 			return this->data;
 		}

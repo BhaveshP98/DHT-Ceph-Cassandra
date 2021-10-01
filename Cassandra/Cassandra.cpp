@@ -1,75 +1,13 @@
 #include "Cassandra.h"
 
-/*int insert_data(Node** head,  int NodeCount)
+void balance_load(Node** head, Node** tail, int nodeID, bool balance_type, int NodeCount, int balance_percent)
 {
-	Node *cur_node = *head;
 	
-	while(NodeCount--)
-	{
-		
-	}
-	
-	return -1;
 }
 
-void setCumulativeWeight(Node* cur, int nodeID, int weight)
+void AddNode(Node** head, Node** tail, int nodeID, int hashValue, int r, int m)
 {
-	if(cur == NULL)
-		return;
-	
-	if(cur->getNodeID() == nodeID)
-	{
-		cur->setWeight(weight);
-		return;
-	}
-	
-	setCumulativeWeight(cur->getNext(), nodeID, weight);
-	cur->setCumulativeWeight();
-}
-
-void balance_load(Node** head, int nodeID, int weight, int NodeCount)
-{
-	Node* cur = *head;
-	
-	setCumulativeWeight(cur, nodeID, weight);
-	
-	cur = *head;
-	
-	unordered_map<int, vector<int>> MovableData;
-	
-	while(cur!= NULL /* && cur->getNodeID() != nodeID)
-	{
-		if(cur->getStatus() != false)
-		{
-			unordered_map<int, int> nodeData = cur->getData();
-			int cumulative_weight = cur->getCumulativeWeight();
-			for(auto it = nodeData.begin(); it != nodeData.end(); ++it)
-			{
-				int hashValue = it->first;
-				int replicaNo = it->second;
-				
-				float hash = float((hashValue+replicaNo)%cumulative_weight)/cumulative_weight;
-				if(hash >= cur->getCumulativeWeightRatio())
-				{
-					MovableData[hashValue].push_back(replicaNo);
-					MovableData[hashValue].push_back(cur->getNodeID());
-				}
-			}
-		}
-		cur = cur->getNext();
-	}
-	
-	for(auto it = MovableData.begin(); it!= MovableData.end(); ++it)
-	{
-		int dest = insert_data(head, it->first, it->second[0], NodeCount);
-		it->second.push_back(dest);
-	}
-
-}*/
-
-void AddNode(Node** head, Node** tail, int nodeID, int hashValue)
-{
-	Node* newNode = new Node(nodeID, hashValue);
+	Node* newNode = new Node(nodeID, hashValue, r);
 	if(head == NULL)
 	{
 		*head = newNode;
@@ -88,47 +26,72 @@ void AddNode(Node** head, Node** tail, int nodeID, int hashValue)
 			else{
 				prev->setNext(&newNode);
 				newNode->setNext(&cur);
+				cur = newNode;
 				break;
 			}
 		}
-		newNode->setNext(head);
-		*head = newNode;
+		prev->enterOriginalData(int(pow(2, m)));
+		cur->enterOriginalData(int(pow(2, m)));
+		
+
+		for(int i=0;i<r;i++)
+		{
+			vector<unordered_set<int>> prevData = prev->getData();
+			for(int j=0;j<r-1;j++)
+			{
+				cur->SetData(prevData[j], j+1);
+			}
+			prev = cur;
+			cur = cur->getNext();
+		}
 	}
 }
 
-/*void RemoveNode(Node** head, int nodeID, int NodeCount, vector<int> replicaTable)
+void RemoveNode(Node** head, Node** tail, int nodeID, int r, int m)
 {
 	if(head == NULL)
 	{
-		cout<<"Invalid Head."<<endl;
 		return;
 	}
 	else
 	{
 		Node* cur = *head;
-		int weight = 0;
-		unordered_map<int, int> FailedData;
-		while(cur != NULL)
+		Node* prev = *tail;
+		while(cur->getNext() != *head)
 		{
-			if(nodeID == cur->getNodeID())
+			if(cur->getNodeID() != nodeID)
 			{
-				cur->setStatus(false);
-				weight = cur->getWeight();
-				FailedData = cur->getData();
+				prev = cur;
+				cur = cur->getNext();
+			}
+			else{
+				Node* cur_next = cur->getNext();
+				prev->setNext(&cur_next);
+				cur->setNext(NULL);
+				free(cur);
+				cur = cur_next;
 				break;
 			}
+		}
+		prev->enterOriginalData(int(pow(2, m)));
+		//cur->enterOriginalData(int(pow(2, m)));
+		
+
+		for(int i=0;i<r;i++)
+		{
+			vector<unordered_set<int>> prevData = prev->getData();
+			for(int j=0;j<r-1;j++)
+			{
+				cur->SetData(prevData[j], j+1);
+			}
+			prev = cur;
 			cur = cur->getNext();
 		}
-		
-		for(auto it = FailedData.begin(); it!= FailedData.end(); ++it)
-		{
-			int dest = insert_data(head, it->first, replicaTable[it->first] , NodeCount);
-			replicaTable[it->first]++;
-		}	
 	}
-}	
+}
 
-void locate_data(Node** head, int data)
+
+/*void locate_data(Node** head, int data)
 {
 	Node* cur = *head;
 	
@@ -152,12 +115,16 @@ void print_data_all(Node** head, int NodeCount)
 	int i=0;
 	while(i<NodeCount)
 	{
-		unordered_map<int, int> NodeData;
+		vector<unordered_set<int>> NodeData;
 		cout<<"NodeID is "<<cur->getNodeID()<<endl;
 		NodeData = cur->getData();
-		for(auto it = NodeData.begin(); it != NodeData.end(); it++)
+		for(int i=0;i<NodeData.size();i++)
 		{
-			cout<<it->first<<" "<<it->second<<" ";
+			for(auto it = NodeData[i].begin(); it != NodeData[i].end(); it++)
+			{
+				cout<<*it<<" "<<i<<" ";
+			}
+			cout<<endl;
 		}
 		cout<<endl;
 		cur = cur->getNext();
@@ -178,7 +145,7 @@ int main()
 	for(int i=0;i<n;i++)
 	{
 		int hashValue = i*(pow(2, m)/n);
-		Node* newNode = new Node(NodeCount, hashValue);
+		Node* newNode = new Node(NodeCount, hashValue, r);
 		if(tail == NULL)
 		{
 			head = newNode;
@@ -194,14 +161,14 @@ int main()
 	}
 	
 	Node* cur = head;
-	int i=0;
+	int j=0;
 
-	while(i<NodeCount)
+	while(j<NodeCount)
 	{
 		cur->insertData(r, m);
 		cur = cur->getNext();
-		i++;
-	}
+		j++;
+	}	
 	
 	print_data_all(&head, NodeCount);
 	
@@ -214,7 +181,8 @@ int main()
 		cout<<"2. Remove Node"<<endl;
 		cout<<"3. Locate Data"<<endl;
 		cout<<"4. Balance Load"<<endl;
-		cout<<"5. Exit"<<endl;
+		cout<<"5. Print data in all nodes"<<endl;
+		cout<<"6. Exit"<<endl;
 		cin>>choice;
 		switch(choice)
 		{
@@ -223,7 +191,7 @@ int main()
 				cout<<"Enter hash value of newly added node"<<endl;
 				int hashvalue;
 				cin>>hashvalue;
-				AddNode(&head, &tail, NodeCount, hashvalue);
+				AddNode(&head, &tail, NodeCount, hashvalue, r, m);
 				NodeCount++;
 				break;
 			}
@@ -232,7 +200,8 @@ int main()
 				cout<<"Enter the ID of node to be removed"<<endl;
 				int nodeID;
 				cin>> nodeID;
-				//RemoveNode(&head, nodeID, NodeCount, replicaTable);
+				RemoveNode(&head, &tail, nodeID, r, m);
+				NodeCount--;
 				break;
 			}
 			case 3:
@@ -246,15 +215,24 @@ int main()
 			case 4:
 			{
 				cout<<"Enter the nodeID and new weight"<<endl;
-				int nodeID, weight;
-				cin >> nodeID >> weight;
-				//balance_load(&head, nodeID, weight, NodeCount);
+				int nodeID, balance_type, balance_percent;
+				cin >> nodeID;
+				cout<<"Please select the type of load balance"<<endl;
+				cout<<"1.Increase the load of node."<<endl;
+				cout<<"2.Decrease the load of node."<<endl;
+				cin>>balance_type;
+				if(balance_type == 1 || balance_type == 2)
+				{
+					cout<<"Please enter the percentage increase/decrease of load"<<endl;
+					cin>>balance_percent;
+					balance_load(&head, &tail, nodeID, balance_type-1,NodeCount, balance_percent);
+				}
 				break;
 			}
 			case 5:
+				print_data_all(&head, NodeCount);
 				break;
 			case 6:
-				print_data_all(&head, NodeCount);
 				break;
 			default:
 			{
@@ -262,7 +240,7 @@ int main()
 				break;
 			}
 		}
-	}while(choice!=5);
+	}while(choice!=6);
 	
 	return 0;	
 }
