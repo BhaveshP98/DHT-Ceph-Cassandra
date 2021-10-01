@@ -99,6 +99,11 @@ class Node{
 		{
 			return this->hashValue;
 		}
+
+		void setHashValue(int load)
+		{
+			this->hashValue+=load;
+		}
 		
 		vector<unordered_set<int>> getData()
 		{

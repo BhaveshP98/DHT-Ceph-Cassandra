@@ -1,8 +1,50 @@
 #include "Cassandra.h"
 
-void balance_load(Node** head, Node** tail, int nodeID, bool balance_type, int NodeCount, int balance_percent)
+void balance_load(Node** head, Node** tail, int nodeID1, int nodeID2, int NodeCount, int load, int m, int r)
 {
-	
+	Node* node1_next = *head;
+	Node* node1 = *tail;
+	int i=0;
+	while(i<NodeCount)
+	{
+		if(node1->getNodeID() == nodeID1)
+		{
+			Node* prev= node1;
+			Node* cur = node1_next;
+			Node* node2;
+			while(cur->getNodeID() != nodeID2)
+			{
+				cur->setHashValue(load);
+				cur = cur->getNext();
+			}
+			cur->setHashValue(load);
+			node2 = cur;
+			cur = node1_next;
+			
+			while(prev!=node2)
+			{
+				Node* cur2 = cur;
+				Node* prev2 = prev;
+				prev2->enterOriginalData(int(pow(2, m)));
+				cur2->enterOriginalData(int(pow(2, m)));
+				for(int i=0;i<r;i++)
+				{
+					vector<unordered_set<int>> prevData = prev2->getData();
+					for(int j=0;j<r-1;j++)
+					{
+						cur2->SetData(prevData[j], j+1);
+					}
+					prev2 = cur2;
+					cur2 = cur2->getNext();
+				}
+				prev = cur;
+				cur = cur->getNext();
+			}
+		}
+		node1 = node1_next;
+		node1_next = node1_next->getNext();
+		i++;
+	}
 }
 
 void AddNode(Node** head, Node** tail, int nodeID, int hashValue, int r, int m)
@@ -91,23 +133,25 @@ void RemoveNode(Node** head, Node** tail, int nodeID, int r, int m)
 }
 
 
-/*void locate_data(Node** head, int data)
+void locate_data(Node** head, int hashValue, int NodeCount)
 {
 	Node* cur = *head;
-	
-	while(cur != NULL)
+	int i=0;
+	while(i<NodeCount)
 	{
-		unordered_map<int, int> NodeData;
-		NodeData = cur->getData();
-		if(NodeData.find(data) != NodeData.end())
+		vector<unordered_set<int>> data = cur->getData();
+		if(data[0].find(hashValue) == data[0].end())
 		{
-			int NodeID = cur->getNodeID();
-			int replicaNo = NodeData[data];
-			cout<<NodeID<<" "<<replicaNo<<endl;
+			cur = cur->getNext();
+			i++;
 		}
-		cur = cur->getNext();
+		else
+		{
+			int nodeID = cur->getNodeID();
+			cout<<"Given hash value is located at node Id: "<<nodeID<<endl;
+		}
 	}
-}*/
+}
 
 void print_data_all(Node** head, int NodeCount)
 {
@@ -209,24 +253,19 @@ int main()
 				cout<<"Enter the hash value of data to be located"<<endl;
 				int data;
 				cin >> data;
-				//locate_data(&head, data);
+				locate_data(&head, data, NodeCount);
 				break;
 			}
 			case 4:
 			{
-				cout<<"Enter the nodeID and new weight"<<endl;
-				int nodeID, balance_type, balance_percent;
-				cin >> nodeID;
-				cout<<"Please select the type of load balance"<<endl;
-				cout<<"1.Increase the load of node."<<endl;
-				cout<<"2.Decrease the load of node."<<endl;
-				cin>>balance_type;
-				if(balance_type == 1 || balance_type == 2)
-				{
-					cout<<"Please enter the percentage increase/decrease of load"<<endl;
-					cin>>balance_percent;
-					balance_load(&head, &tail, nodeID, balance_type-1,NodeCount, balance_percent);
-				}
+				cout<<"Enter the nodeIDs of underloaded and overloaded nodes"<<endl;
+				int nodeID1, nodeID2, load;
+				cin >> nodeID1 >> nodeID2;
+				cout<<"Enter the amount of load to be balanced"<<endl;
+				cin >> load;
+				
+				balance_load(&head, &tail, nodeID1, nodeID2, load, NodeCount, m, r);
+				
 				break;
 			}
 			case 5:
